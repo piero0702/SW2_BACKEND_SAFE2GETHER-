@@ -15,10 +15,16 @@ def supabase_headers() -> dict:
     }
 
 
-def table_url() -> str:
+def table_url(table_name: str | None = None) -> str:
+    """Return the PostgREST table URL for the given table name.
+
+    If table_name is None, falls back to settings.SUPABASE_TABLE to preserve
+    backward compatibility with existing callers.
+    """
     # Normaliza la base URL para evitar dobles o faltantes '/'
     base = str(settings.SUPABASE_URL).rstrip('/')
-    return f"{base}/rest/v1/{settings.SUPABASE_TABLE}"
+    table = table_name or settings.SUPABASE_TABLE
+    return f"{base}/rest/v1/{table}"
 
 
 class SupabaseClient:
