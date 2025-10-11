@@ -16,3 +16,15 @@ class UserUpdate(BaseModel):
     user: str | None = None
     email: EmailStr | None = None
     psswd: str | None = None
+
+
+# Models para autenticación / token
+class LoginRequest(BaseModel):
+    user: str = Field(..., min_length=1)
+    psswd: str = Field(..., min_length=1)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut | None = None

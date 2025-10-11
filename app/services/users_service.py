@@ -52,3 +52,30 @@ class UsersService:
     async def delete_user(self, user_id: int) -> dict:
         deleted_count = await self.repo.delete_user(user_id)
         return {"deleted": deleted_count}
+
+    async def authenticate(self, username: str, psswd: str) -> dict:
+        """Authenticate a user by username and password.
+
+        NOTE: The current project does not include hashed passwords or JWT libs.
+        This method compares plain fields (for compatibility with existing DB data)
+        and returns a simple HMAC-based token. Replace with bcrypt/pyjwt in prod.
+        """
+        # Buscar usuario (case-insensitive)
+        rows = await self.repo.get_by_username_ci(username)
+        user_row = rows[0] if isinstance(rows, list) and rows else None
+        if not user_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        stored = user_row.get("psswd")
+        # Simple password compare (replace with secure compare + hashing)
+        if stored is None or stored != psswd:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+        # Crear token HMAC simple (no dependencia externa)
+        import time, hmac, hashlib, base64
+        secret = hashlib.sha256(str(time.time()).encode()).hexdigest()
+        payload = f"{user_row.get('id')}:{user_row.get('user')}:{int(time.time())}"
+        sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).digest()
+        token = base64.urlsafe_b64encode(payload.encode() + b"." + sig).decode()
+
+        return {"access_token": token, "token_type": "bearer", "user": user_row}
