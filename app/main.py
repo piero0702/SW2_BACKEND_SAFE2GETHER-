@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 import logging
 from app.config import settings
 from app.controllers.users_controller import router as users_router
@@ -14,6 +16,18 @@ app = FastAPI(
     description="API MVC con FastAPI + Supabase (PostgREST)",
 )
 
+# CORS - permitir orígenes durante desarrollo (ajustar en producción)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # para desarrollo; en producción restringir a orígenes confiables
+    allow_credentials=True,
+    # declarar explícitamente OPTIONS y otros métodos
+    allow_methods=["OPTIONS", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
+)
+
 app.include_router(users_router)
 app.include_router(reportes_router)
 app.include_router(auth_router)
@@ -22,3 +36,9 @@ app.include_router(auth_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# Fallback global OPTIONS handler para preflight (evita 405 si alguna ruta no responde a OPTIONS)
+@app.options("/{full_path:path}")
+async def preflight_handler(full_path: str):
+    return PlainTextResponse('', status_code=200)
