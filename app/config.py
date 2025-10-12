@@ -1,3 +1,4 @@
+#//sw2_backend_safe2gether/app/config.py
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import AnyHttpUrl
@@ -12,6 +13,9 @@ class Settings(BaseSettings):
     APP_TITLE: str = "Proxy API"
     APP_VERSION: str = "1.0.0"
 
+    # 👇 NUEVO: agrega la key de Google
+    GOOGLE_MAPS_API_KEY: str = ""
+    
     model_config = SettingsConfigDict(
         env_file=str(ENV_PATH),
         env_file_encoding="utf-8",

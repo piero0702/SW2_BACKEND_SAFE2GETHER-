@@ -1,3 +1,4 @@
+# //sw2_backend_safe2gether/app/controllers/reportes_controller.py
 from fastapi import APIRouter, Depends
 import logging
 from app.services.reportes_service import ReportesService
