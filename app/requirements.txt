@@ -3,3 +3,4 @@ uvicorn
 httpx
 pydantic
 pydantic-settings
+email-validator
