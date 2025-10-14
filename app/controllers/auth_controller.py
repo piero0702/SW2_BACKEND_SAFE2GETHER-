@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends
 from app.services.users_service import UsersService
 from app.models.user import LoginRequest, TokenResponse
 
