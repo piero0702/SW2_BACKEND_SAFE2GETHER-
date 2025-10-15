@@ -24,6 +24,10 @@ class ReportesService:
         # Force default veracidad when not provided by client
         if sanitized.get("veracidad_porcentaje") is None:
             sanitized["veracidad_porcentaje"] = 0.0
+        # Default estado to "Activo" if not provided or empty
+        estado_val = sanitized.get("estado")
+        if estado_val is None or (isinstance(estado_val, str) and not estado_val.strip()):
+            sanitized["estado"] = "Activo"
         created = await self.repo.create_reporte(sanitized)
         return ReporteOut(**created)
 
