@@ -27,9 +27,20 @@ def table_url(table_name: str | None = None) -> str:
     return f"{base}/rest/v1/{table}"
 
 
+_shared_async_client: httpx.AsyncClient | None = None
+
+
+def _get_async_client() -> httpx.AsyncClient:
+    global _shared_async_client
+    if _shared_async_client is None:
+        # Reusar conexiones (HTTP/1.1 keep-alive) y limitar timeout
+        _shared_async_client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
+    return _shared_async_client
+
+
 class SupabaseClient:
     def __init__(self):
-        self._client = httpx.AsyncClient(timeout=10)
+        self._client = _get_async_client()
 
     async def get(self, url: str, params: dict | None = None):
         logger.debug("GET %s params=%s", url, params)
@@ -48,4 +59,5 @@ class SupabaseClient:
         return await self._client.delete(url, headers=supabase_headers(), params=params)
 
     async def aclose(self):
-        await self._client.aclose()
+        # Cliente compartido: no cerrar aquí para no romper otras instancias
+        pass

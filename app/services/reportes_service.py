@@ -11,8 +11,8 @@ class ReportesService:
         self.repo = repo or ReportesRepository()
         self.users_repo = users_repo or UsersRepository()
 
-    async def list_reportes(self) -> list[ReporteOut]:
-        rows = await self.repo.list_reportes()
+    async def list_reportes(self, *, limit: int | None = 20, offset: int | None = 0, order: str | None = "created_at.desc") -> list[ReporteOut]:
+        rows = await self.repo.list_reportes(limit=limit, offset=offset, order=order)
         return [ReporteOut(**row) for row in rows]
 
     async def list_by_user(self, user_id: int) -> list[ReporteOut]:

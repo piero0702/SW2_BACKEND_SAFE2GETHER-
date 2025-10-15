@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+from fastapi.middleware.gzip import GZipMiddleware
 import logging
 import os
 from pathlib import Path
@@ -43,6 +44,9 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="API MVC con FastAPI + Supabase (PostgREST)",
 )
+
+# GZip para comprimir respuestas JSON grandes
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # CORS - permitir orígenes durante desarrollo (ajustar en producción)
 app.add_middleware(

@@ -1,5 +1,5 @@
 # //sw2_backend_safe2gether/app/controllers/reportes_controller.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 import logging
 from app.services.reportes_service import ReportesService
 from app.models.reporte import ReporteCreate, ReporteOut, ReporteUpdate
@@ -14,8 +14,13 @@ def get_service() -> ReportesService:
 
 
 @router.get("", response_model=list[ReporteOut])
-async def list_reportes(service: ReportesService = Depends(get_service)):
-    return await service.list_reportes()
+async def list_reportes(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    order: str = Query("created_at.desc"),
+    service: ReportesService = Depends(get_service),
+):
+    return await service.list_reportes(limit=limit, offset=offset, order=order)
 
 
 @router.get("/user/{user_id}", response_model=list[ReporteOut])

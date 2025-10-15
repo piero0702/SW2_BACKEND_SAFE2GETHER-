@@ -46,3 +46,7 @@ class AdjuntoService:
     async def delete_adjunto(self, adjunto_id: int) -> dict:
         deleted_count = await self.repo.delete_adjunto(adjunto_id)
         return {"deleted": deleted_count}
+
+    async def list_by_report_ids(self, reporte_ids: list[int]) -> list[AdjuntoOut]:
+        rows = await self.repo.list_by_reporte_ids(reporte_ids)
+        return [AdjuntoOut(**row) for row in rows]

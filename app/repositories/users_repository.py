@@ -139,6 +139,16 @@ class UsersRepository:
         data = res.json()
         return data[0] if isinstance(data, list) and data else None
 
+    async def get_by_ids(self, ids: list[int]) -> List[Dict[str, Any]]:
+        if not ids:
+            return []
+        # PostgREST in filter: id=in.(1,2,3)
+        values = ",".join(str(i) for i in ids)
+        params = {"select": "*", "id": f"in.({values})"}
+        res = await self.client.get(table_url(), params=params)
+        res.raise_for_status()
+        return res.json()
+
 
     async def update_password(self, user_id: int, new_password: str) -> Dict[str, Any]:
         """

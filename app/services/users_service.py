@@ -277,3 +277,7 @@ class UsersService:
         Retorna la cantidad de tokens activos (para debugging).
         """
         return len(_reset_tokens)
+
+    async def get_users_by_ids(self, ids: list[int]) -> list[UserOut]:
+        rows = await self.repo.get_by_ids(ids)
+        return [UserOut(**row) for row in rows]

@@ -96,3 +96,12 @@ class AdjuntosRepository:
             return len(data) if isinstance(data, list) else 0
         except Exception:
             return 0
+
+    async def list_by_reporte_ids(self, reporte_ids: list[int]) -> List[Dict[str, Any]]:
+        if not reporte_ids:
+            return []
+        values = ",".join(str(i) for i in reporte_ids)
+        params = {"select": "*", "reporte_id": f"in.({values})"}
+        res = await self.client.get(table_url('Adjuntos'), params=params)
+        res.raise_for_status()
+        return res.json()

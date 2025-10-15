@@ -1,5 +1,5 @@
 #//sw2_backend_safe2gether/app/controllers/users_controller.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 import logging
 from app.services.users_service import UsersService
 from app.models.user import UserCreate, UserOut, UserUpdate
@@ -48,6 +48,16 @@ async def replace_user(id: int, data: UserCreate, service: UsersService = Depend
     # Treat PUT as full replace: pass the validated create model to update
     return await service.update_user(id, data)
 
+
+# Bulk fetch users by ids: /users/bulk?ids=1,2,3
+@router.get("/bulk")
+async def bulk_users(ids: str = Query(""), service: UsersService = Depends(get_service)):
+    try:
+        id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        return await service.get_users_by_ids(id_list)
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"ids inválidos: {e}")
 
 @router.get("/{id}", response_model=UserOut)
 async def get_user(id: int, service: UsersService = Depends(get_service)):

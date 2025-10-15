@@ -1,5 +1,5 @@
 # //sw2_backend_safe2gether/app/controllers/reportes_controller.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, HTTPException
 import logging
 from app.services.adjunto_service import AdjuntoService
 from app.models.adjunto import AdjuntoCreate, AdjuntoOut, AdjuntoUpdate
@@ -43,6 +43,14 @@ async def delete_adjunto(id: int, service: AdjuntoService = Depends(get_service)
 async def replace_adjunto(id: int, data: AdjuntoCreate, service: AdjuntoService = Depends(get_service)):
     return await service.update_adjunto(id, data)
 
+
+@router.get("/by-reporte-ids")
+async def list_adjuntos_by_reporte_ids(ids: str = Query(""), service: AdjuntoService = Depends(get_service)):
+    try:
+        id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+        return await service.list_by_report_ids(id_list)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"ids inválidos: {e}")
 
 @router.get("/{id}", response_model=AdjuntoOut)
 async def get_adjunto(id: int, service: AdjuntoService = Depends(get_service)):

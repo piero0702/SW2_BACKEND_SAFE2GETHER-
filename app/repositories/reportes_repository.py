@@ -12,8 +12,15 @@ class ReportesRepository:
     def __init__(self, client: SupabaseClient | None = None):
         self.client = client or SupabaseClient()
 
-    async def list_reportes(self) -> List[Dict[str, Any]]:
-        res = await self.client.get(table_url('Reportes'), params={"select": "*"})
+    async def list_reportes(self, *, limit: int | None = None, offset: int | None = None, order: str | None = None) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {"select": "*"}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        if order:
+            params["order"] = order
+        res = await self.client.get(table_url('Reportes'), params=params)
         res.raise_for_status()
         return res.json()
 
