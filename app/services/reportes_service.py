@@ -18,7 +18,7 @@ class ReportesService:
 
     async def create_reporte(self, payload: ReporteCreate) -> ReporteOut:
         # sanitize payload
-        allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje"}
+        allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized = {k: v for k, v in raw.items() if k in allowed}
         created = await self.repo.create_reporte(sanitized)
@@ -31,7 +31,7 @@ class ReportesService:
         return ReporteOut(**row)
 
     async def update_reporte(self, reporte_id: int, payload: ReporteUpdate | ReporteCreate) -> ReporteOut:
-        allowed = {"titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje"}
+        allowed = {"titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized: dict[str, Any] = {k: v for k, v in raw.items() if k in allowed and v is not None}
 

@@ -12,11 +12,16 @@ class ReporteCreate(BaseModel):
     direccion: Optional[str] = None
     estado: Optional[str] = None
     veracidad_porcentaje: Optional[float] = None
+    cantidad_upvotes: int = 0
+    cantidad_downvotes: int = 0
 
 
 class ReporteOut(ReporteCreate):
     id: Optional[int] = None
     created_at: Optional[str] = None
+    # Override to accept NULLs from existing rows; default to 0 when missing
+    cantidad_upvotes: Optional[int] = 0
+    cantidad_downvotes: Optional[int] = 0
 
 
 class ReporteUpdate(BaseModel):
@@ -28,3 +33,5 @@ class ReporteUpdate(BaseModel):
     direccion: Optional[str] = None
     estado: Optional[str] = None
     veracidad_porcentaje: Optional[float] = None
+    cantidad_upvotes: Optional[int] = None
+    cantidad_downvotes: Optional[int] = None
