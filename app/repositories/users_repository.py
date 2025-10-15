@@ -110,3 +110,65 @@ class UsersRepository:
             return len(data) if isinstance(data, list) else 0
         except Exception:
             return 0
+        
+    async def get_by_email(self, email: str) -> Dict[str, Any] | None:
+        """
+        Obtiene un usuario por su email.
+        Retorna None si no existe.
+        """
+        params = {"select": "*", "email": f"eq.{email}", "limit": 1}
+        res = await self.client.get(table_url(), params=params)
+        
+        try:
+            res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            try:
+                body = exc.response.json()
+            except Exception:
+                body = exc.response.text
+            logger.error(
+                "Supabase get_by_email failed: status=%s url=%s params=%s response_body=%s",
+                exc.response.status_code,
+                exc.request.url,
+                params,
+                body,
+            )
+            detail = body if isinstance(body, (dict, list, str)) else str(body)
+            raise HTTPException(status_code=exc.response.status_code, detail=detail)
+
+        data = res.json()
+        return data[0] if isinstance(data, list) and data else None
+
+
+    async def update_password(self, user_id: int, new_password: str) -> Dict[str, Any]:
+        """
+        Actualiza únicamente la contraseña de un usuario.
+        """
+        payload = {"psswd": new_password}
+        params = {"id": f"eq.{user_id}", "select": "*"}
+        
+        res = await self.client.patch(table_url(), params=params, json=payload)
+        
+        try:
+            res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            try:
+                body = exc.response.json()
+            except Exception:
+                body = exc.response.text
+            logger.error(
+                "Supabase update_password failed: status=%s url=%s user_id=%s response_body=%s",
+                exc.response.status_code,
+                exc.request.url,
+                user_id,
+                body,
+            )
+            detail = body if isinstance(body, (dict, list, str)) else str(body)
+            raise HTTPException(status_code=exc.response.status_code, detail=detail)
+
+        data = res.json()
+        
+        if not data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        return data[0] if isinstance(data, list) and data else data

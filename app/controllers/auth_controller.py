@@ -1,3 +1,4 @@
+#//sw2_backend_safe2gether/app/controllers/auth_controller.py
 from fastapi import APIRouter, Depends
 from app.services.users_service import UsersService
 from app.models.user import LoginRequest, TokenResponse
