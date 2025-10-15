@@ -118,3 +118,78 @@ async def test_sendgrid_config():
         print("⚠️ Formato de API Key incorrecto (debería comenzar con SG.)")
     
     return True
+
+
+async def send_report_confirmation_email(
+    to_email: str,
+    username: str,
+    reporte_id: int,
+    titulo: str,
+    categoria: str | None = None,
+    direccion: str | None = None,
+) -> bool:
+    """Envía un email de confirmación cuando se crea un reporte.
+
+    Retorna True si SendGrid acepta el envío (202) o False en caso contrario.
+    """
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset=\"UTF-8\">
+    </head>
+    <body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">
+        <div style=\"background: linear-gradient(135deg, #08192D 0%, #0D47A1 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;\">
+            <h1>📣 Safe2Gether</h1>
+            <p>Confirmación de Registro de Reporte</p>
+        </div>
+
+        <div style=\"background: white; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;\">
+            <p>Hola <strong>{username}</strong>,</p>
+            <p>Tu reporte ha sido registrado exitosamente.</p>
+
+            <div style=\"background-color: #f8f9fa; border-left: 4px solid #0D47A1; padding: 15px; margin: 20px 0;\">
+                <p style=\"margin: 0;\"><strong>N° de Reporte:</strong> #{reporte_id}</p>
+                <p style=\"margin: 6px 0 0;\"><strong>Título:</strong> {titulo}</p>
+                {f'<p style="margin: 6px 0 0;"><strong>Categoría:</strong> {categoria}</p>' if categoria else ''}
+                {f'<p style="margin: 6px 0 0;"><strong>Dirección:</strong> {direccion}</p>' if direccion else ''}
+            </div>
+
+            <p style=\"color: #666; font-size: 14px;\">Gracias por ayudar a mantener informada a la comunidad.</p>
+        </div>
+
+        <div style=\"text-align: center; padding: 20px; color: #999; font-size: 12px;\">
+            © 2025 Safe2Gether | Este es un email automático
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
+        if not sendgrid_api_key:
+            print("❌ SENDGRID_API_KEY NO ENCONTRADA en variables de entorno")
+            return False
+
+        message = Mail(
+            from_email=Email("20213320@aloe.ulima.edu.pe", "Safe_2_Gether!"),
+            to_emails=To(to_email),
+            subject=f"Reporte #{reporte_id} registrado - Safe2Gether",
+            html_content=Content("text/html", html_content),
+        )
+
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+
+        print(f"📤 SendGrid Response Status: {response.status_code}")
+        if response.status_code in [200, 201, 202]:
+            print(f"✅ Email de confirmación de reporte enviado a {to_email}")
+            return True
+        print(f"⚠️ Error SendGrid Status: {response.status_code}")
+        return False
+
+    except Exception as e:
+        print(f"❌ Error en send_report_confirmation_email: {str(e)}")
+        import traceback
+        print(f"🔍 Traceback completo:\n{traceback.format_exc()}")
+        return False

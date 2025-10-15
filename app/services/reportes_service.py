@@ -1,12 +1,15 @@
 from fastapi import HTTPException, status
 from typing import Any
 from app.repositories.reportes_repository import ReportesRepository
+from app.repositories.users_repository import UsersRepository
+from app.services.email_service import send_report_confirmation_email
 from app.models.reporte import ReporteCreate, ReporteOut, ReporteUpdate
 
 
 class ReportesService:
-    def __init__(self, repo: ReportesRepository | None = None):
+    def __init__(self, repo: ReportesRepository | None = None, users_repo: UsersRepository | None = None):
         self.repo = repo or ReportesRepository()
+        self.users_repo = users_repo or UsersRepository()
 
     async def list_reportes(self) -> list[ReporteOut]:
         rows = await self.repo.list_reportes()
@@ -29,6 +32,35 @@ class ReportesService:
         if estado_val is None or (isinstance(estado_val, str) and not estado_val.strip()):
             sanitized["estado"] = "Activo"
         created = await self.repo.create_reporte(sanitized)
+
+        # Enviar email de confirmación al usuario si es posible
+        try:
+            user_id = sanitized.get("user_id")
+            if user_id is not None:
+                user = await self.users_repo.get_by_id(int(user_id))
+                if user and user.get("email"):
+                    email = user["email"]
+                    username = user.get("user", "Usuario")
+                    rid = created.get("id")
+                    if rid is not None:
+                        try:
+                            rid = int(rid)
+                        except Exception:
+                            rid = None
+                    # Solo enviar si tenemos un ID válido
+                    if isinstance(rid, int):
+                        await send_report_confirmation_email(
+                            to_email=email,
+                            username=username,
+                            reporte_id=rid,
+                            titulo=str(created.get("titulo") or sanitized.get("titulo") or ""),
+                            categoria=(created.get("categoria") or sanitized.get("categoria")),
+                            direccion=(created.get("direccion") or sanitized.get("direccion")),
+                        )
+        except Exception as e:
+            # No bloquear creación por errores de email
+            print(f"⚠️ No se pudo enviar email de confirmación: {e}")
+
         return ReporteOut(**created)
 
     async def get_reporte(self, reporte_id: int) -> ReporteOut:
