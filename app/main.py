@@ -32,6 +32,7 @@ from app.controllers.users_controller import router as users_router
 from app.controllers.reportes_controller import router as reportes_router
 from app.controllers.adjunto_controller import router as adjuntos_router
 from app.controllers.reacciones_controller import router as reacciones_router
+from app.controllers.comentarios_controller import router as comentarios_router
 from app.controllers.auth_controller import router as auth_router
 
 # Basic logging to stdout to capture debug logs from clients/repos
@@ -60,6 +61,7 @@ app.include_router(reportes_router)
 app.include_router(auth_router)
 app.include_router(adjuntos_router)
 app.include_router(reacciones_router)
+app.include_router(comentarios_router)
 
 # Health check con verificación de servicios
 @app.get("/health")
