@@ -54,12 +54,6 @@ class UsersService:
         return {"deleted": deleted_count}
 
     async def authenticate(self, username: str, psswd: str) -> dict:
-        """Authenticate a user by username and password.
-
-        NOTE: The current project does not include hashed passwords or JWT libs.
-        This method compares plain fields (for compatibility with existing DB data)
-        and returns a simple HMAC-based token. Replace with bcrypt/pyjwt in prod.
-        """
         # Buscar usuario (case-insensitive)
         rows = await self.repo.get_by_username_ci(username)
         user_row = rows[0] if isinstance(rows, list) and rows else None

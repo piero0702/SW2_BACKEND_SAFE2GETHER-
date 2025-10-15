@@ -11,7 +11,8 @@ class ReporteCreate(BaseModel):
     lon: Optional[float] = None
     direccion: Optional[str] = None
     estado: Optional[str] = None
-    veracidad_porcentaje: Optional[float] = None
+    # Default veracity to 0 for new reports when not provided by client
+    veracidad_porcentaje: Optional[float] = 0
     cantidad_upvotes: int = 0
     cantidad_downvotes: int = 0
 

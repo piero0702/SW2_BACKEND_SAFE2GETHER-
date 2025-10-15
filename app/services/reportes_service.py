@@ -21,6 +21,9 @@ class ReportesService:
         allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized = {k: v for k, v in raw.items() if k in allowed}
+        # Force default veracidad when not provided by client
+        if sanitized.get("veracidad_porcentaje") is None:
+            sanitized["veracidad_porcentaje"] = 0.0
         created = await self.repo.create_reporte(sanitized)
         return ReporteOut(**created)
 
@@ -34,6 +37,19 @@ class ReportesService:
         allowed = {"titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized: dict[str, Any] = {k: v for k, v in raw.items() if k in allowed and v is not None}
+
+        # Si llegan contadores sin veracidad, recalcularla aquí
+        up_in = sanitized.get("cantidad_upvotes")
+        down_in = sanitized.get("cantidad_downvotes")
+        ver_in = sanitized.get("veracidad_porcentaje")
+        if ver_in is None and (up_in is not None or down_in is not None):
+            # Obtener valores actuales para completar los que falten
+            actual = await self.repo.get_by_id(reporte_id)
+            if actual:
+                up = int(up_in if up_in is not None else (actual.get("cantidad_upvotes") or 0))
+                down = int(down_in if down_in is not None else (actual.get("cantidad_downvotes") or 0))
+                total = up + down
+                sanitized["veracidad_porcentaje"] = float((up / total) * 100.0) if total > 0 else 0.0
 
         updated = await self.repo.update_reporte(reporte_id, sanitized)
         if isinstance(updated, list):
