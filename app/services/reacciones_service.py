@@ -129,11 +129,21 @@ class ReaccionesService:
         total = new_up + new_down
         veracidad = float((new_up / total) * 100.0) if total > 0 else 0.0
 
+        # Aplicar regla de estado en función de la veracidad
+        payload = {
+            "cantidad_upvotes": new_up,
+            "cantidad_downvotes": new_down,
+            "veracidad_porcentaje": veracidad,
+        }
+        try:
+            if veracidad < 33.0:
+                payload["estado"] = "Falso"
+            else:
+                payload["estado"] = "Activo"
+        except Exception:
+            pass
+
         await self.reportes_repo.update_reporte(
             reporte_id,
-            {
-                "cantidad_upvotes": new_up,
-                "cantidad_downvotes": new_down,
-                "veracidad_porcentaje": veracidad,
-            },
+            payload,
         )

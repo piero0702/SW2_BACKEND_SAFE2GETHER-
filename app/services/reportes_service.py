@@ -31,6 +31,16 @@ class ReportesService:
         estado_val = sanitized.get("estado")
         if estado_val is None or (isinstance(estado_val, str) and not estado_val.strip()):
             sanitized["estado"] = "Activo"
+        # Regla: estado basado en veracidad (<33 => Falso, >=33 => Activo)
+        try:
+            v = sanitized.get("veracidad_porcentaje")
+            if v is not None:
+                if float(v) < 33.0:
+                    sanitized["estado"] = "Falso"
+                else:
+                    sanitized["estado"] = "Activo"
+        except Exception:
+            pass
         created = await self.repo.create_reporte(sanitized)
 
         # Enviar email de confirmación al usuario si es posible
@@ -86,6 +96,17 @@ class ReportesService:
                 down = int(down_in if down_in is not None else (actual.get("cantidad_downvotes") or 0))
                 total = up + down
                 sanitized["veracidad_porcentaje"] = float((up / total) * 100.0) if total > 0 else 0.0
+
+        # Regla: estado basado en veracidad (<33 => Falso, >=33 => Activo)
+        try:
+            v = sanitized.get("veracidad_porcentaje")
+            if v is not None:
+                if float(v) < 33.0:
+                    sanitized["estado"] = "Falso"
+                else:
+                    sanitized["estado"] = "Activo"
+        except Exception:
+            pass
 
         updated = await self.repo.update_reporte(reporte_id, sanitized)
         if isinstance(updated, list):
