@@ -49,6 +49,15 @@ async def replace_reporte(id: int, data: ReporteCreate, service: ReportesService
     return await service.update_reporte(id, data)
 
 
+@router.get("/estadisticas/distritos")
+async def get_district_statistics(service: ReportesService = Depends(get_service)):
+    """
+    Endpoint para obtener estadísticas de seguridad por distrito.
+    Retorna la cantidad de reportes agrupados por distrito y tipo de delito.
+    """
+    return await service.get_district_statistics()
+
+
 @router.get("/{id}", response_model=ReporteOut)
 async def get_reporte(id: int, service: ReportesService = Depends(get_service)):
     return await service.get_reporte(id)

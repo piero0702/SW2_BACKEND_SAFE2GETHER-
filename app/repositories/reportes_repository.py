@@ -103,3 +103,42 @@ class ReportesRepository:
             return len(data) if isinstance(data, list) else 0
         except Exception:
             return 0
+
+    async def get_district_statistics(self) -> dict:
+        """
+        Obtiene estadísticas agrupadas por distrito.
+        Retorna: {distrito: {total: int, por_categoria: {categoria: count}}}
+        """
+        # Obtener todos los reportes con distrito y categoría
+        params = {"select": "distrito,categoria,estado,veracidad_porcentaje"}
+        res = await self.client.get(table_url('Reportes'), params=params)
+        res.raise_for_status()
+        reportes = res.json()
+
+        # Agrupar por distrito
+        stats = {}
+        for r in reportes:
+            distrito = r.get("distrito")
+            categoria = r.get("categoria", "Otro")
+            estado = r.get("estado", "Activo")
+            veracidad = r.get("veracidad_porcentaje", 0)
+            
+            # Solo contar reportes activos con veracidad >= 33%
+            if estado == "Activo" and veracidad >= 33:
+                # Si no hay distrito, usar "Sin distrito"
+                if not distrito or distrito.strip() == "":
+                    distrito = "Sin distrito"
+                
+                if distrito not in stats:
+                    stats[distrito] = {
+                        "total": 0,
+                        "por_categoria": {}
+                    }
+                
+                stats[distrito]["total"] += 1
+                
+                if categoria not in stats[distrito]["por_categoria"]:
+                    stats[distrito]["por_categoria"][categoria] = 0
+                stats[distrito]["por_categoria"][categoria] += 1
+
+        return stats

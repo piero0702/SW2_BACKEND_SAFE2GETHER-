@@ -119,3 +119,10 @@ class ReportesService:
     async def delete_reporte(self, reporte_id: int) -> dict:
         deleted_count = await self.repo.delete_reporte(reporte_id)
         return {"deleted": deleted_count}
+
+    async def get_district_statistics(self) -> dict:
+        """
+        Obtiene estadísticas de seguridad agrupadas por distrito.
+        Retorna cantidad total de reportes por distrito y desglose por tipo de delito.
+        """
+        return await self.repo.get_district_statistics()
