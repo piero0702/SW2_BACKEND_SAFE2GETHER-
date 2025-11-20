@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\alexc\Desktop\sOFTI\SW2_BACKEND_SAFE2GETHER-\venv
+set VIRTUAL_ENV=C:\Users\piero\OneDrive\Desktop\SW 2\PROY_FINAL_SPRINT_2\BACKEND\SW2_BACKEND_SAFE2GETHER-\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
