@@ -19,6 +19,11 @@ class ReportesService:
         rows = await self.repo.list_by_user(user_id)
         return [ReporteOut(**row) for row in rows]
 
+    async def list_reportes_from_followed_users(self, user_id: int) -> list[ReporteOut]:
+        """Obtiene reportes de los usuarios que user_id sigue"""
+        rows = await self.repo.list_reportes_from_followed_users(user_id)
+        return [ReporteOut(**row) for row in rows]
+
     async def create_reporte(self, payload: ReporteCreate) -> ReporteOut:
         # sanitize payload
         allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "distrito", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}

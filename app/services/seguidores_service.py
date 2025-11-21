@@ -22,6 +22,11 @@ class SeguidoresService:
         rows = await self.repo.list_seguidos_by_user(user_id)
         return [SeguidorOut(**row) for row in rows]
 
+    async def is_following(self, seguidor_id: int, seguido_id: int) -> dict:
+        """Verifica si seguidor_id sigue a seguido_id"""
+        existing = await self.repo.check_if_exists(seguidor_id, seguido_id)
+        return {"is_following": existing is not None}
+
     async def create_seguidor(self, payload: SeguidorCreate) -> SeguidorOut:
         allowed = {"seguidor_id", "seguido_id"}
         raw = payload.model_dump()

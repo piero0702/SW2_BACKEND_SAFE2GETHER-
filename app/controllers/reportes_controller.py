@@ -29,6 +29,12 @@ async def list_reportes_by_user(user_id: int, service: ReportesService = Depends
     return await service.list_by_user(user_id)
 
 
+@router.get("/seguidos/{user_id}", response_model=list[ReporteOut])
+async def list_reportes_from_followed_users(user_id: int, service: ReportesService = Depends(get_service)):
+    """Obtiene reportes de los usuarios que user_id sigue"""
+    return await service.list_reportes_from_followed_users(user_id)
+
+
 @router.post("", response_model=ReporteOut, status_code=201)
 async def create_reporte(data: ReporteCreate, service: ReportesService = Depends(get_service)):
     logger.debug("Payload a Supabase: %s", data.model_dump())

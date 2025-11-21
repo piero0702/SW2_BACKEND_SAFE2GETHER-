@@ -29,6 +29,12 @@ async def list_seguidos_by_user(user_id: int, service: SeguidoresService = Depen
     return await service.list_seguidos_by_user(user_id)
 
 
+@router.get("/is-following/{seguidor_id}/{seguido_id}")
+async def is_following(seguidor_id: int, seguido_id: int, service: SeguidoresService = Depends(get_service)):
+    """Verifica si seguidor_id sigue a seguido_id"""
+    return await service.is_following(seguidor_id, seguido_id)
+
+
 @router.post("", response_model=SeguidorOut, status_code=201)
 async def create_seguidor(data: SeguidorCreate, service: SeguidoresService = Depends(get_service)):
     logger.debug("Payload a Supabase (Seguidor): %s", data.model_dump())
