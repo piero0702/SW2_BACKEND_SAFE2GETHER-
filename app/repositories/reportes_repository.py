@@ -144,15 +144,16 @@ class ReportesRepository:
 
         return stats
 
-    async def get_district_ranking(self, period: str = "week") -> list[dict]:
+    async def get_district_ranking(self, period: str = "week", categorias: Optional[List[str]] = None) -> list[dict]:
         """Devuelve ranking de distritos más seguros (menos reportes válidos) para un período.
 
         period: "week" | "month" | "year"
+        categorias: (opcional) lista de categorías para filtrar
         Regla de "reporte válido": estado == "Activo" y veracidad_porcentaje >= 33.
         Consideramos "resuelto" como veracidad_porcentaje >= 33 (no existe otro campo de resolución).
 
         Retorna lista ordenada asc por total_delitos:
-        [{distrito, total_delitos, resoluciones_autoridades, porcentaje_resoluciones, periodo, desde, hasta}]
+        [{distrito, total_delitos, resoluciones_autoridades, porcentaje_resoluciones, periodo, desde, hasta, por_categoria}]
         """
         period = (period or "week").lower().strip()
         now = datetime.now(timezone.utc)
@@ -163,9 +164,9 @@ class ReportesRepository:
         else:
             start = now - timedelta(days=7)
 
-        # Obtener todos los reportes
+        # Obtener todos los reportes con created_at y categoria
         params = {
-            "select": "distrito,estado,veracidad_porcentaje",
+            "select": "distrito,estado,veracidad_porcentaje,created_at,categoria",
         }
         try:
             res = await self.client.get(table_url('Reportes'), params=params)
@@ -180,15 +181,32 @@ class ReportesRepository:
             res.raise_for_status()
             rows = res.json()
         
-        # Formato de fechas para el resultado (aunque no filtramos, mostramos el rango solicitado)
+        # Formato de fechas para el resultado
         start_iso = start.strftime("%Y-%m-%dT%H:%M:%S")
         end_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         agg: Dict[str, Dict[str, Any]] = {}
         for r in rows:
+            # Filtrar por fecha created_at
+            created_at_str = r.get("created_at")
+            if created_at_str:
+                try:
+                    # Parsear la fecha y comparar
+                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                    if created_at < start:
+                        continue  # Saltar reportes fuera del período
+                except (ValueError, AttributeError):
+                    # Si hay error parseando la fecha, incluir el reporte
+                    pass
+            
             distrito = r.get("distrito") or "Sin distrito"
             estado = r.get("estado") or ""
             veracidad = r.get("veracidad_porcentaje") or 0
+            cat = r.get("categoria") or "Sin categoría"
+
+            # Si hay filtro de categorías, solo contar reportes de esas categorías
+            if categorias and cat not in categorias:
+                continue
 
             # Reporte válido para contar delito
             valido = estado == "Activo" and (isinstance(veracidad, (int, float)) and veracidad >= 33)
@@ -197,10 +215,16 @@ class ReportesRepository:
                     "distrito": distrito,
                     "total_delitos": 0,
                     "resoluciones_autoridades": 0,
+                    "por_categoria": {},
                 }
             if valido:
                 agg[distrito]["total_delitos"] += 1
                 agg[distrito]["resoluciones_autoridades"] += 1  # misma métrica por falta de campo específico
+                
+                # Agregar conteo por categoría
+                if cat not in agg[distrito]["por_categoria"]:
+                    agg[distrito]["por_categoria"][cat] = 0
+                agg[distrito]["por_categoria"][cat] += 1
 
         ranking = []
         for distrito, data in agg.items():
@@ -215,6 +239,7 @@ class ReportesRepository:
                 "periodo": period,
                 "desde": start_iso,
                 "hasta": end_iso,
+                "por_categoria": data["por_categoria"],
             })
 
         # Orden ascendente por total_delitos (menos delitos => más seguro)

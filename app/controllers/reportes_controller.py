@@ -1,5 +1,6 @@
 # //sw2_backend_safe2gether/app/controllers/reportes_controller.py
 from fastapi import APIRouter, Depends, Query
+from typing import Optional
 import logging
 from app.services.reportes_service import ReportesService
 from app.models.reporte import ReporteCreate, ReporteOut, ReporteUpdate
@@ -60,13 +61,17 @@ async def get_district_statistics(service: ReportesService = Depends(get_service
 @router.get("/ranking/distritos")
 async def get_district_ranking(
     period: str = Query("week", pattern="^(week|month|year)$"),
+    categorias: Optional[str] = Query(None, description="Filtrar por tipos de delito (separados por coma)"),
     service: ReportesService = Depends(get_service)
 ):
     """Ranking de distritos más seguros (menos reportes válidos) para el período indicado.
 
     period: week | month | year
+    categorias: (opcional) filtrar por tipos de delito específicos separados por coma
     """
-    return await service.get_district_ranking(period)
+    # Convertir string separado por comas a lista
+    categorias_list = [c.strip() for c in categorias.split(',')] if categorias else None
+    return await service.get_district_ranking(period, categorias_list)
 
 @router.post("/{reporte_id}/actualizar-distrito")
 async def actualizar_distrito_desde_coordenadas(

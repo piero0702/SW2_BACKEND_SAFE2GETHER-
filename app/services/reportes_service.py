@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from typing import Any
+from typing import Any, Optional
 from app.repositories.reportes_repository import ReportesRepository
 from app.repositories.users_repository import UsersRepository
 from app.services.email_service import send_report_confirmation_email
@@ -140,13 +140,13 @@ class ReportesService:
         """
         return await self.repo.get_district_statistics()
 
-    async def get_district_ranking(self, period: str = "week") -> list[dict]:
+    async def get_district_ranking(self, period: str = "week", categorias: Optional[list[str]] = None) -> list[dict]:
         """Devuelve ranking de distritos para el período indicado.
 
         "Más seguro" => menos reportes válidos (estado Activo y veracidad >=33).
         Nota: No existe campo explícito de resolución por autoridad; usamos veracidad >=33 como proxy.
         """
-        return await self.repo.get_district_ranking(period)
+        return await self.repo.get_district_ranking(period, categorias)
 
     async def actualizar_distrito_desde_coordenadas(self, reporte_id: int) -> dict:
         """Actualiza el distrito de un reporte usando sus coordenadas lat/lon.
