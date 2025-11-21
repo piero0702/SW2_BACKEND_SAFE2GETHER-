@@ -10,6 +10,7 @@ class ReporteCreate(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     direccion: Optional[str] = None
+    distrito: Optional[str] = None  # Se obtiene automáticamente desde coordenadas
     estado: Optional[str] = None
     # Default veracity to 0 for new reports when not provided by client
     veracidad_porcentaje: Optional[float] = 0
@@ -32,6 +33,7 @@ class ReporteUpdate(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     direccion: Optional[str] = None
+    distrito: Optional[str] = None
     estado: Optional[str] = None
     veracidad_porcentaje: Optional[float] = None
     cantidad_upvotes: Optional[int] = None

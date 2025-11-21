@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     SUPABASE_URL: AnyHttpUrl
     SUPABASE_ANON_KEY: str
     SUPABASE_TABLE: str = "Usuarios"
+    GOOGLE_MAPS_API_KEY: str
+    SENDGRID_API_KEY: str
     APP_TITLE: str = "Proxy API"
     APP_VERSION: str = "1.0.0"
 

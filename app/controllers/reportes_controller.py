@@ -57,6 +57,39 @@ async def get_district_statistics(service: ReportesService = Depends(get_service
     """
     return await service.get_district_statistics()
 
+@router.get("/ranking/distritos")
+async def get_district_ranking(
+    period: str = Query("week", pattern="^(week|month|year)$"),
+    service: ReportesService = Depends(get_service)
+):
+    """Ranking de distritos más seguros (menos reportes válidos) para el período indicado.
+
+    period: week | month | year
+    """
+    return await service.get_district_ranking(period)
+
+@router.post("/{reporte_id}/actualizar-distrito")
+async def actualizar_distrito_desde_coordenadas(
+    reporte_id: int,
+    service: ReportesService = Depends(get_service)
+):
+    """Actualiza el campo distrito de un reporte basándose en sus coordenadas lat/lon.
+    
+    Usa Google Maps Reverse Geocoding para obtener el distrito.
+    """
+    return await service.actualizar_distrito_desde_coordenadas(reporte_id)
+
+@router.post("/actualizar-distritos-masivo")
+async def actualizar_distritos_masivo(
+    service: ReportesService = Depends(get_service)
+):
+    """Actualiza el campo distrito de TODOS los reportes que no lo tienen, 
+    usando sus coordenadas lat/lon.
+    
+    Útil para migración inicial de datos.
+    """
+    return await service.actualizar_distritos_masivo()
+
 
 @router.get("/{id}", response_model=ReporteOut)
 async def get_reporte(id: int, service: ReportesService = Depends(get_service)):

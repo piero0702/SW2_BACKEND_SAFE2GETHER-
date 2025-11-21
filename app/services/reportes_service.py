@@ -21,7 +21,7 @@ class ReportesService:
 
     async def create_reporte(self, payload: ReporteCreate) -> ReporteOut:
         # sanitize payload
-        allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
+        allowed = {"user_id", "titulo", "descripcion", "categoria", "lat", "lon", "direccion", "distrito", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized = {k: v for k, v in raw.items() if k in allowed}
         # Force default veracidad when not provided by client
@@ -41,6 +41,19 @@ class ReportesService:
                     sanitized["estado"] = "Activo"
         except Exception:
             pass
+        
+        # 🆕 NUEVO: Obtener distrito automáticamente desde coordenadas
+        lat = sanitized.get("lat")
+        lon = sanitized.get("lon")
+        if lat is not None and lon is not None:
+            try:
+                distrito = await self.repo.get_distrito_from_coordinates(lat, lon)
+                if distrito:
+                    sanitized["distrito"] = distrito
+                    print(f"✓ Distrito obtenido automáticamente: {distrito}")
+            except Exception as e:
+                print(f"⚠️ No se pudo obtener distrito automáticamente: {e}")
+        
         created = await self.repo.create_reporte(sanitized)
 
         # Enviar email de confirmación al usuario si es posible
@@ -80,7 +93,7 @@ class ReportesService:
         return ReporteOut(**row)
 
     async def update_reporte(self, reporte_id: int, payload: ReporteUpdate | ReporteCreate) -> ReporteOut:
-        allowed = {"titulo", "descripcion", "categoria", "lat", "lon", "direccion", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
+        allowed = {"titulo", "descripcion", "categoria", "lat", "lon", "direccion", "distrito", "estado", "veracidad_porcentaje", "cantidad_upvotes", "cantidad_downvotes"}
         raw = payload.model_dump()
         sanitized: dict[str, Any] = {k: v for k, v in raw.items() if k in allowed and v is not None}
 
@@ -126,3 +139,114 @@ class ReportesService:
         Retorna cantidad total de reportes por distrito y desglose por tipo de delito.
         """
         return await self.repo.get_district_statistics()
+
+    async def get_district_ranking(self, period: str = "week") -> list[dict]:
+        """Devuelve ranking de distritos para el período indicado.
+
+        "Más seguro" => menos reportes válidos (estado Activo y veracidad >=33).
+        Nota: No existe campo explícito de resolución por autoridad; usamos veracidad >=33 como proxy.
+        """
+        return await self.repo.get_district_ranking(period)
+
+    async def actualizar_distrito_desde_coordenadas(self, reporte_id: int) -> dict:
+        """Actualiza el distrito de un reporte usando sus coordenadas lat/lon.
+        
+        Args:
+            reporte_id: ID del reporte a actualizar
+            
+        Returns:
+            Diccionario con el resultado de la actualización
+        """
+        # Obtener el reporte
+        reporte = await self.repo.get_by_id(reporte_id)
+        if not reporte:
+            raise HTTPException(status_code=404, detail="Reporte no encontrado")
+        
+        lat = reporte.get("lat")
+        lon = reporte.get("lon")
+        
+        if lat is None or lon is None:
+            raise HTTPException(
+                status_code=400, 
+                detail="El reporte no tiene coordenadas (lat/lon) definidas"
+            )
+        
+        # Obtener distrito desde Google Maps
+        distrito = await self.repo.get_distrito_from_coordinates(lat, lon)
+        
+        if not distrito:
+            raise HTTPException(
+                status_code=404, 
+                detail="No se pudo determinar el distrito desde las coordenadas proporcionadas"
+            )
+        
+        # Actualizar el reporte con el distrito
+        updated = await self.repo.update_reporte(reporte_id, {"distrito": distrito})
+        
+        return {
+            "success": True,
+            "reporte_id": reporte_id,
+            "distrito": distrito,
+            "coordenadas": {"lat": lat, "lon": lon},
+            "reporte_actualizado": updated
+        }
+
+    async def actualizar_distritos_masivo(self) -> dict:
+        """Actualiza el distrito de todos los reportes que no lo tienen.
+        
+        Returns:
+            Resumen con cantidad de reportes procesados, actualizados y fallidos
+        """
+        # Obtener todos los reportes
+        reportes = await self.repo.list_reportes()
+        
+        procesados = 0
+        actualizados = 0
+        fallidos = 0
+        errores = []
+        
+        for reporte in reportes:
+            reporte_id = reporte.get("id")
+            distrito_actual = reporte.get("distrito")
+            lat = reporte.get("lat")
+            lon = reporte.get("lon")
+            
+            # Saltar si ya tiene distrito
+            if distrito_actual and distrito_actual.strip():
+                continue
+            
+            # Saltar si no tiene coordenadas
+            if lat is None or lon is None:
+                continue
+            
+            procesados += 1
+            
+            try:
+                # Obtener distrito desde Google Maps
+                distrito = await self.repo.get_distrito_from_coordinates(lat, lon)
+                
+                if distrito:
+                    # Actualizar el reporte
+                    await self.repo.update_reporte(reporte_id, {"distrito": distrito})
+                    actualizados += 1
+                else:
+                    fallidos += 1
+                    errores.append({
+                        "reporte_id": reporte_id,
+                        "error": "No se pudo determinar el distrito"
+                    })
+            except Exception as e:
+                fallidos += 1
+                errores.append({
+                    "reporte_id": reporte_id,
+                    "error": str(e)
+                })
+        
+        return {
+            "success": True,
+            "total_reportes": len(reportes),
+            "procesados": procesados,
+            "actualizados": actualizados,
+            "fallidos": fallidos,
+            "errores": errores[:10]  # Solo los primeros 10 errores
+        }

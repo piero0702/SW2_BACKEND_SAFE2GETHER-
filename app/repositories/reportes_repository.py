@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta, timezone
 import logging
 import httpx
 from fastapi import HTTPException
@@ -142,3 +143,182 @@ class ReportesRepository:
                 stats[distrito]["por_categoria"][categoria] += 1
 
         return stats
+
+    async def get_district_ranking(self, period: str = "week") -> list[dict]:
+        """Devuelve ranking de distritos más seguros (menos reportes válidos) para un período.
+
+        period: "week" | "month" | "year"
+        Regla de "reporte válido": estado == "Activo" y veracidad_porcentaje >= 33.
+        Consideramos "resuelto" como veracidad_porcentaje >= 33 (no existe otro campo de resolución).
+
+        Retorna lista ordenada asc por total_delitos:
+        [{distrito, total_delitos, resoluciones_autoridades, porcentaje_resoluciones, periodo, desde, hasta}]
+        """
+        period = (period or "week").lower().strip()
+        now = datetime.now(timezone.utc)
+        if period == "year":
+            start = now - timedelta(days=365)
+        elif period == "month":
+            start = now - timedelta(days=30)
+        else:
+            start = now - timedelta(days=7)
+
+        # Obtener todos los reportes
+        params = {
+            "select": "distrito,estado,veracidad_porcentaje",
+        }
+        try:
+            res = await self.client.get(table_url('Reportes'), params=params)
+            res.raise_for_status()
+            rows = res.json()
+        except httpx.HTTPStatusError as e:
+            # Log del error para debugging
+            logger.error(f"Error en Supabase: {e.response.status_code} - {e.response.text}")
+            # Si falla, intentar con select=* (todas las columnas)
+            params = {"select": "*"}
+            res = await self.client.get(table_url('Reportes'), params=params)
+            res.raise_for_status()
+            rows = res.json()
+        
+        # Formato de fechas para el resultado (aunque no filtramos, mostramos el rango solicitado)
+        start_iso = start.strftime("%Y-%m-%dT%H:%M:%S")
+        end_iso = now.strftime("%Y-%m-%dT%H:%M:%S")
+
+        agg: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            distrito = r.get("distrito") or "Sin distrito"
+            estado = r.get("estado") or ""
+            veracidad = r.get("veracidad_porcentaje") or 0
+
+            # Reporte válido para contar delito
+            valido = estado == "Activo" and (isinstance(veracidad, (int, float)) and veracidad >= 33)
+            if distrito not in agg:
+                agg[distrito] = {
+                    "distrito": distrito,
+                    "total_delitos": 0,
+                    "resoluciones_autoridades": 0,
+                }
+            if valido:
+                agg[distrito]["total_delitos"] += 1
+                agg[distrito]["resoluciones_autoridades"] += 1  # misma métrica por falta de campo específico
+
+        ranking = []
+        for distrito, data in agg.items():
+            total = data["total_delitos"]
+            resueltos = data["resoluciones_autoridades"]
+            porcentaje = (resueltos / total * 100.0) if total > 0 else 0.0
+            ranking.append({
+                "distrito": distrito,
+                "total_delitos": total,
+                "resoluciones_autoridades": resueltos,
+                "porcentaje_resoluciones": round(porcentaje, 2),
+                "periodo": period,
+                "desde": start_iso,
+                "hasta": end_iso,
+            })
+
+        # Orden ascendente por total_delitos (menos delitos => más seguro)
+        ranking.sort(key=lambda x: x["total_delitos"])
+        return ranking
+
+    async def get_distrito_from_coordinates(self, lat: float, lon: float) -> Optional[str]:
+        """Obtiene el distrito a partir de coordenadas usando Google Maps Reverse Geocoding API.
+        
+        Args:
+            lat: Latitud
+            lon: Longitud
+            
+        Returns:
+            Nombre del distrito o None si no se encuentra
+        """
+        if not settings.GOOGLE_MAPS_API_KEY:
+            logger.error("GOOGLE_MAPS_API_KEY no está configurada")
+            return None
+        
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            "latlng": f"{lat},{lon}",
+            "key": settings.GOOGLE_MAPS_API_KEY,
+            "language": "es",
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("status") != "OK":
+                    logger.error(f"Error en Google Maps API: {data.get('status')} - {data.get('error_message', '')}")
+                    return None
+                
+                results = data.get("results", [])
+                if not results:
+                    logger.warning(f"No se encontraron resultados para lat={lat}, lon={lon}")
+                    return None
+                
+                logger.info(f"Procesando {len(results)} resultados de Google Maps para lat={lat}, lon={lon}")
+                
+                # Buscar el componente de distrito en múltiples niveles
+                distrito_encontrado = None
+                
+                for result in results:
+                    address_components = result.get("address_components", [])
+                    formatted_address = result.get("formatted_address", "")
+                    
+                    logger.debug(f"Dirección formateada: {formatted_address}")
+                    
+                    # Prioridad 1: sublocality_level_1 (distrito específico)
+                    for component in address_components:
+                        types = component.get("types", [])
+                        if "sublocality_level_1" in types:
+                            distrito_encontrado = component.get("long_name")
+                            logger.info(f"✓ Distrito encontrado (sublocality_level_1): {distrito_encontrado}")
+                            return distrito_encontrado
+                    
+                    # Prioridad 2: sublocality_level_2
+                    for component in address_components:
+                        types = component.get("types", [])
+                        if "sublocality_level_2" in types:
+                            distrito_encontrado = component.get("long_name")
+                            logger.info(f"✓ Distrito encontrado (sublocality_level_2): {distrito_encontrado}")
+                            return distrito_encontrado
+                    
+                    # Prioridad 3: sublocality (distrito general)
+                    for component in address_components:
+                        types = component.get("types", [])
+                        if "sublocality" in types:
+                            distrito_encontrado = component.get("long_name")
+                            logger.info(f"✓ Distrito encontrado (sublocality): {distrito_encontrado}")
+                            return distrito_encontrado
+                    
+                    # Prioridad 4: administrative_area_level_3 (puede ser distrito en algunos países)
+                    for component in address_components:
+                        types = component.get("types", [])
+                        if "administrative_area_level_3" in types:
+                            distrito_encontrado = component.get("long_name")
+                            logger.info(f"✓ Distrito encontrado (admin_level_3): {distrito_encontrado}")
+                            return distrito_encontrado
+                    
+                    # Prioridad 5: locality (ciudad/pueblo)
+                    for component in address_components:
+                        types = component.get("types", [])
+                        if "locality" in types:
+                            distrito_encontrado = component.get("long_name")
+                            logger.info(f"✓ Localidad encontrada: {distrito_encontrado}")
+                            return distrito_encontrado
+                
+                # Si no encontramos nada, loguear todos los componentes para debug
+                if not distrito_encontrado and results:
+                    logger.warning(f"No se encontró distrito. Componentes disponibles:")
+                    for component in results[0].get("address_components", []):
+                        logger.warning(f"  - {component.get('long_name')} ({', '.join(component.get('types', []))})")
+                
+                return None
+                
+        except httpx.HTTPError as e:
+            logger.error(f"Error HTTP al consultar Google Maps API: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error inesperado en get_distrito_from_coordinates: {e}", exc_info=True)
+            return None
