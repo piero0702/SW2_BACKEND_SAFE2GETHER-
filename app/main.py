@@ -37,6 +37,7 @@ from app.controllers.comentarios_controller import router as comentarios_router
 from app.controllers.auth_controller import router as auth_router
 from app.controllers.notas_comunidad_controller import router as notas_comunidad_router
 from app.controllers.seguidores_controller import router as seguidores_router
+from app.controllers.places_controller import router as places_router
 
 # Basic logging to stdout to capture debug logs from clients/repos
 logging.basicConfig(level=logging.DEBUG)
@@ -70,6 +71,7 @@ app.include_router(reacciones_router)
 app.include_router(comentarios_router)
 app.include_router(notas_comunidad_router)
 app.include_router(seguidores_router)
+app.include_router(places_router)
 
 # Health check con verificación de servicios
 @app.get("/health")
