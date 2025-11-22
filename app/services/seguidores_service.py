@@ -28,7 +28,7 @@ class SeguidoresService:
         return {"is_following": existing is not None}
 
     async def create_seguidor(self, payload: SeguidorCreate) -> SeguidorOut:
-        allowed = {"seguidor_id", "seguido_id"}
+        allowed = {"seguidor_id", "seguido_id", "notificar_reportes"}
         raw = payload.model_dump()
         sanitized = {k: v for k, v in raw.items() if k in allowed}
         
@@ -60,7 +60,7 @@ class SeguidoresService:
         return SeguidorOut(**row)
 
     async def update_seguidor(self, seguidor_id: int, payload: SeguidorUpdate | SeguidorCreate) -> SeguidorOut:
-        allowed = {"seguidor_id", "seguido_id"}
+        allowed = {"seguidor_id", "seguido_id", "notificar_reportes"}
         raw = payload.model_dump()
         sanitized: dict[str, Any] = {k: v for k, v in raw.items() if k in allowed and v is not None}
 
@@ -93,3 +93,21 @@ class SeguidoresService:
                 detail="No se encontró la relación de seguimiento"
             )
         return {"deleted": deleted_count}
+
+    async def update_notification_preference(self, seguidor_id: int, seguido_id: int, notificar: bool) -> dict:
+        """Actualiza la preferencia de notificación para una relación de seguimiento específica"""
+        # Verificar que existe la relación
+        existing = await self.repo.check_if_exists(seguidor_id, seguido_id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No se encontró la relación de seguimiento"
+            )
+        
+        # Actualizar usando update_by_users del repository
+        updated = await self.repo.update_by_users(
+            seguidor_id, 
+            seguido_id, 
+            {"notificar_reportes": notificar}
+        )
+        return {"updated": True, "notificar_reportes": notificar}

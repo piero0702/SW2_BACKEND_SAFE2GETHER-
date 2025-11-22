@@ -154,3 +154,28 @@ class SeguidoresRepository:
             return len(data) if isinstance(data, list) else 0
         except Exception:
             return 0
+
+    async def update_by_users(self, seguidor_id: int, seguido_id: int, payload: dict) -> Dict[str, Any]:
+        """Actualiza una relación de seguimiento específica entre dos usuarios"""
+        params = {
+            "seguidor_id": f"eq.{seguidor_id}",
+            "seguido_id": f"eq.{seguido_id}",
+            "select": "*"
+        }
+        res = await self.client.patch(self._url(), params=params, json=payload)
+        try:
+            res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            try:
+                body = exc.response.json()
+            except Exception:
+                body = exc.response.text
+            logger.error(
+                "Supabase update_by_users failed: status=%s url=%s payload=%s response_body=%s",
+                exc.response.status_code, exc.request.url, payload, body
+            )
+            detail = body if isinstance(body, (dict, list, str)) else str(body)
+            raise HTTPException(status_code=exc.response.status_code, detail=detail)
+
+        data = res.json()
+        return data[0] if isinstance(data, list) and data else data

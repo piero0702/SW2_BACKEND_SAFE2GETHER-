@@ -41,6 +41,17 @@ async def create_seguidor(data: SeguidorCreate, service: SeguidoresService = Dep
     return await service.create_seguidor(data)
 
 
+@router.put("/notificaciones/{seguidor_id}/{seguido_id}")
+async def update_notification_preference(
+    seguidor_id: int, 
+    seguido_id: int, 
+    notificar: bool,
+    service: SeguidoresService = Depends(get_service)
+):
+    """Actualiza la preferencia de notificación para una relación de seguimiento específica"""
+    return await service.update_notification_preference(seguidor_id, seguido_id, notificar)
+
+
 @router.delete("/unfollow/{seguidor_id}/{seguido_id}")
 async def unfollow(seguidor_id: int, seguido_id: int, service: SeguidoresService = Depends(get_service)):
     """Elimina una relación de seguimiento específica entre dos usuarios"""

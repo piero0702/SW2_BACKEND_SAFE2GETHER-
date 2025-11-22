@@ -2,14 +2,16 @@ from fastapi import HTTPException, status
 from typing import Any, Optional
 from app.repositories.reportes_repository import ReportesRepository
 from app.repositories.users_repository import UsersRepository
-from app.services.email_service import send_report_confirmation_email
+from app.repositories.seguidores_repository import SeguidoresRepository
+from app.services.email_service import send_report_confirmation_email, send_new_report_notification
 from app.models.reporte import ReporteCreate, ReporteOut, ReporteUpdate
 
 
 class ReportesService:
-    def __init__(self, repo: ReportesRepository | None = None, users_repo: UsersRepository | None = None):
+    def __init__(self, repo: ReportesRepository | None = None, users_repo: UsersRepository | None = None, seguidores_repo: SeguidoresRepository | None = None):
         self.repo = repo or ReportesRepository()
         self.users_repo = users_repo or UsersRepository()
+        self.seguidores_repo = seguidores_repo or SeguidoresRepository()
 
     async def list_reportes(self, *, limit: int | None = 20, offset: int | None = 0, order: str | None = "created_at.desc") -> list[ReporteOut]:
         rows = await self.repo.list_reportes(limit=limit, offset=offset, order=order)
@@ -88,6 +90,39 @@ class ReportesService:
         except Exception as e:
             # No bloquear creación por errores de email
             print(f"⚠️ No se pudo enviar email de confirmación: {e}")
+
+        # 🆕 NUEVO: Notificar a seguidores que tienen notificar_reportes=True
+        try:
+            user_id = sanitized.get("user_id")
+            if user_id is not None:
+                # Obtener autor del reporte
+                author = await self.users_repo.get_by_id(int(user_id))
+                author_username = author.get("user", "Usuario") if author else "Usuario"
+                
+                # Obtener seguidores del autor
+                seguidores = await self.seguidores_repo.list_seguidores_by_user(int(user_id))
+                
+                # Filtrar solo los que tienen notificar_reportes=True
+                for seguidor in seguidores:
+                    if seguidor.get("notificar_reportes") is True:
+                        seguidor_id = seguidor.get("seguidor_id")
+                        if seguidor_id:
+                            # Obtener info del seguidor
+                            follower = await self.users_repo.get_by_id(seguidor_id)
+                            if follower and follower.get("email"):
+                                # Enviar notificación por email
+                                await send_new_report_notification(
+                                    to_email=follower["email"],
+                                    follower_username=follower.get("user", "Usuario"),
+                                    author_username=author_username,
+                                    report_title=str(created.get("titulo") or sanitized.get("titulo") or "Nuevo reporte"),
+                                    report_id=int(created.get("id")),
+                                    report_district=str(created.get("distrito") or sanitized.get("distrito") or "Desconocido")
+                                )
+                                print(f"✉️ Notificación enviada a {follower['email']} por nuevo reporte")
+        except Exception as e:
+            # No bloquear creación por errores de notificación
+            print(f"⚠️ Error al enviar notificaciones a seguidores: {e}")
 
         return ReporteOut(**created)
 
